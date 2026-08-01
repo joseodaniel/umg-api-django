@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db.models import Q
-from datetime import datetime, date
+from django.utils import timezone
+
 from .models import Reserva
 from .serializers import ReservaListSerializer
 from usuarios.models import Usuario
@@ -22,6 +25,7 @@ def hay_traslape(lab_id, fecha, hora_inicio, hora_fin, excluir_id=None):
     if excluir_id:
         qs = qs.exclude(pk=excluir_id)
     return qs.exists()
+
 
 CAMPOS_REQUERIDOS_RESERVA = {
     'UMG_User_ID': 'el docente (UMG_User_ID)',
@@ -53,9 +57,42 @@ def hay_bloqueo(lab_id, fecha, hora_inicio, hora_fin):
     ).exists()
 
 
+
+def finalizar_vencidas():
+    """
+    Promueve a 'F' (Finalizada) toda reserva en estado 'R' cuyo bloque
+    horario ya concluyo respecto al momento actual.
+
+    Se ejecuta al inicio de cada consulta (GET), en vez de depender de una
+    tarea programada externa: no hay ningun proceso en segundo plano, asi
+    que la transicion se calcula "on read" y se persiste antes de responder.
+    """
+    ahora = timezone.localtime(timezone.now())
+    tz_actual = timezone.get_current_timezone()
+
+    candidatas = Reserva.objects.filter(
+        umg_estado='R',
+        umg_fecha_reserva__lte=ahora.date(),
+    )
+
+    vencidas_ids = [
+        r.umg_id for r in candidatas
+        if timezone.make_aware(
+            datetime.combine(r.umg_fecha_reserva, r.umg_hora_fin), tz_actual
+        ) <= ahora
+    ]
+
+    if vencidas_ids:
+        Reserva.objects.filter(umg_id__in=vencidas_ids).update(umg_estado='F')
+
+    return vencidas_ids
+
+
 @api_view(['GET', 'POST'])
 def reservas_list_create(request):
     if request.method == 'GET':
+        finalizar_vencidas()
+
         lab_id = request.query_params.get('labId')
         fecha = request.query_params.get('fecha')
         user_id = request.query_params.get('userId')
@@ -90,7 +127,7 @@ def reservas_list_create(request):
         except (ValueError, TypeError):
             return Response({'mensaje': 'La fecha proporcionada no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if fecha_obj < date.today():
+        if fecha_obj < timezone.localdate():
             return Response({'mensaje': 'No se puede crear una reserva para una fecha pasada.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if hora_inicio >= hora_fin:
@@ -149,6 +186,8 @@ def reservas_list_create(request):
 
 @api_view(['GET'])
 def reservas_detalle(request, pk):
+    finalizar_vencidas()
+
     try:
         reserva = Reserva.objects.select_related('umg_user', 'umg_lab').get(pk=pk)
     except Reserva.DoesNotExist:
@@ -160,6 +199,8 @@ def reservas_detalle(request, pk):
 
 @api_view(['PATCH'])
 def reservas_cancelar(request, pk):
+    finalizar_vencidas()
+
     try:
         reserva = Reserva.objects.get(pk=pk)
     except Reserva.DoesNotExist:
@@ -167,6 +208,9 @@ def reservas_cancelar(request, pk):
 
     if reserva.umg_estado == 'C':
         return Response({'mensaje': 'Esta reserva ya se encuentra cancelada.'}, status=status.HTTP_409_CONFLICT)
+
+    if reserva.umg_estado == 'F':
+        return Response({'mensaje': 'Esta reserva ya finalizo y no puede cancelarse.'}, status=status.HTTP_409_CONFLICT)
 
     reserva.umg_estado = 'C'
     reserva.save()
