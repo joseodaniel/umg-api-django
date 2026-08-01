@@ -5,31 +5,15 @@ HU-003 - Consultar disponibilidad de laboratorios | PRUEBAS DE INTEGRACION
      fecha y horario, para elegir el espacio adecuado antes de registrar mi
      reserva."
 
-ESTADO: EL ENDPOINT NO EXISTE  (DEF-004)
-----------------------------------------
-A diferencia de HU-001 y HU-002, aqui no hay codigo que probar. La API expone
-GET /api/labs/ (catalogo completo) y GET /api/reservas/ (con filtros labId,
-fecha y userId), pero ninguna ruta que cruce ambos para responder "que
-laboratorios estan libres en tal fecha y horario". Coincide con el documento de
-historias, que anota "NO HAY" en la columna de endpoints.
+Endpoint bajo prueba: GET /api/labs/disponibles/ (labs/views.py:labs_disponibles)
 
-El archivo se organiza en tres bloques:
+DEF-004 (RF-003 no implementado) esta resuelto: el endpoint ya existe y cruza
+GET /api/labs/ con las reservas y bloqueos del dia para responder que
+laboratorios estan libres en una fecha y horario dados.
 
-  1. TestAusenciaDelEndpoint
-     Documenta el hueco con una prueba que PASA hoy: ninguna de las rutas
-     plausibles resuelve. El dia que alguien implemente el endpoint, esta prueba
-     fallara y avisara que hay que retirarla.
-
-  2. Escenarios 1 a 3
-     Los criterios de aceptacion tal como deberian comportarse, marcados
-     xfail(strict=True). Cuando el endpoint se implemente, dejaran de fallar y
-     strict avisara que ya se puede quitar la marca. Sirven de especificacion
-     ejecutable para quien lo desarrolle.
-
-  3. TestAlternativaComponiendoEndpointsExistentes
-     Verifica que la informacion necesaria SI es obtenible hoy combinando dos
-     llamadas. Es lo que la GUI tiene que estar haciendo, y demuestra que el
-     hueco es de conveniencia y rendimiento, no de datos faltantes.
+La clase TestAlternativaComponiendoEndpointsExistentes se conserva porque sigue
+siendo cierta: documenta el rodeo de dos llamadas que la GUI puede usar como
+alternativa, y sirve de referencia de rendimiento frente al endpoint dedicado.
 """
 
 import time
@@ -43,74 +27,7 @@ from reservas.models import Reserva
 pytestmark = [pytest.mark.integration, pytest.mark.hu003, pytest.mark.django_db]
 
 
-# Ruta que tendria el endpoint si existiera, siguiendo la convencion del resto
-# de la API (prefijo /api/, plural, barra final).
 RUTA_PROPUESTA = '/api/labs/disponibles/'
-
-
-# --------------------------------------------------------------------------- #
-# 1. Documentacion del hueco                                                   #
-# --------------------------------------------------------------------------- #
-
-class TestAusenciaDelEndpoint:
-    """
-    DEF-004: RF-003 no esta implementado.
-
-    Estas pruebas pasan hoy porque comprueban la ausencia. Son el centinela que
-    avisara cuando la situacion cambie.
-    """
-
-    @pytest.mark.parametrize(
-        'ruta',
-        [
-            '/api/labs/disponibles/',
-            '/api/labs/disponibilidad/',
-            '/api/disponibilidad/',
-            '/api/reservas/disponibilidad/',
-        ],
-    )
-    def test_ninguna_ruta_plausible_de_disponibilidad_resuelve(
-        self, api, fecha_futura, ruta
-    ):
-        respuesta = api.get(
-            ruta,
-            {
-                'fecha': fecha_futura.isoformat(),
-                'hora_inicio': '08:00',
-                'hora_fin': '10:00',
-            },
-        )
-
-        assert respuesta.status_code == 404, (
-            f'{ruta} respondio {respuesta.status_code}. Si el endpoint de '
-            f'disponibilidad ya se implemento, retira TestAusenciaDelEndpoint y '
-            f'quita las marcas xfail de los escenarios 1 a 3.'
-        )
-
-    def test_el_listado_de_laboratorios_ignora_los_filtros_de_disponibilidad(
-        self, api, docente, lab, otro_lab, fecha_futura, crear_reserva
-    ):
-        """
-        GET /api/labs/ devuelve el catalogo completo aunque se le pasen fecha y
-        horario: no filtra por ocupacion. Es la evidencia concreta de que el
-        endpoint existente no cubre RF-003.
-        """
-        crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
-
-        respuesta = api.get(
-            '/api/labs/',
-            {
-                'fecha': fecha_futura.isoformat(),
-                'hora_inicio': '08:00',
-                'hora_fin': '10:00',
-            },
-        )
-
-        assert respuesta.status_code == 200
-        assert len(respuesta.data) == 2, (
-            'GET /api/labs/ devolvio menos laboratorios de los registrados: '
-            'quiza ya filtra por disponibilidad.'
-        )
 
 
 # --------------------------------------------------------------------------- #
@@ -126,11 +43,6 @@ class TestEscenario1ConsultaConLaboratoriosDisponibles:
 
     Verifica: RF-003, RNF-003
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-004: RF-003 no implementado, no existe endpoint de disponibilidad.',
-    )
 
     def test_responde_http_200_con_la_lista_de_libres(
         self, api, docente, lab, otro_lab, fecha_futura, crear_reserva
@@ -183,11 +95,6 @@ class TestEscenario2SinDisponibilidad:
     Verifica: RF-003
     """
 
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-004: RF-003 no implementado, no existe endpoint de disponibilidad.',
-    )
-
     def test_devuelve_lista_vacia_y_no_un_error(
         self, api, docente, lab, otro_lab, fecha_futura, crear_reserva
     ):
@@ -221,11 +128,6 @@ class TestEscenario3ParametrosInvalidos:
 
     Verifica: RNF-004
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-004: RF-003 no implementado, no existe endpoint de disponibilidad.',
-    )
 
     @pytest.mark.parametrize(
         'params, caso',

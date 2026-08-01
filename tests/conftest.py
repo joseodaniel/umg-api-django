@@ -47,7 +47,7 @@ def rol_docente(db):
 @pytest.fixture
 def rol_admin(db):
     return Rol.objects.create(
-        umg_nombre='Administrador',
+        umg_nombre='Admin',
         umg_descripcion='Gestion global de reservas y auditoria',
     )
 

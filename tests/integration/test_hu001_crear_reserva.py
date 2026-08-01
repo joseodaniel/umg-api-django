@@ -9,11 +9,6 @@ Cada clase implementa uno de los 6 escenarios de aceptacion en formato Gherkin.
 Las pruebas recorren el stack completo: URL -> vista -> ORM -> respuesta HTTP.
 
 Endpoint bajo prueba: POST /api/reservas/
-
-Defectos detectados por esta suite (ver tests/README.md):
-    DEF-001  Omitir UMG_Hora_Inicio o UMG_Hora_Fin devuelve HTTP 500 en vez de 400.
-    DEF-002  RN-011 (maximo 4 horas continuas) no esta implementada.
-    DEF-003  RN-012 (horario habil 07:00-22:00) no esta implementada.
 """
 
 from datetime import date, timedelta
@@ -142,26 +137,8 @@ class TestEscenario2CamposObligatoriosIncompletos:
             'UMG_Fecha_Reserva',
             'UMG_User_ID',
             'UMG_Lab_ID',
-            pytest.param(
-                'UMG_Hora_Inicio',
-                marks=pytest.mark.xfail(
-                    strict=True,
-                    reason=(
-                        'DEF-001: reservas/views.py:73 compara hora_inicio >= hora_fin '
-                        'sin validar presencia. Con None lanza TypeError -> HTTP 500.'
-                    ),
-                ),
-            ),
-            pytest.param(
-                'UMG_Hora_Fin',
-                marks=pytest.mark.xfail(
-                    strict=True,
-                    reason=(
-                        'DEF-001: reservas/views.py:73 compara hora_inicio >= hora_fin '
-                        'sin validar presencia. Con None lanza TypeError -> HTTP 500.'
-                    ),
-                ),
-            ),
+            'UMG_Hora_Inicio',
+            'UMG_Hora_Fin',
         ],
     )
     def test_rechaza_con_400_al_faltar_un_campo(
@@ -363,14 +340,6 @@ class TestEscenario5DuracionExcedida:
 
         assert respuesta.status_code == 201
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-002: RN-011 no implementada. reservas/views.py no valida la '
-            'duracion del bloque, por lo que acepta reservas de mas de 4 horas. '
-            'Coincide con el hallazgo reportado en la GUI.'
-        ),
-    )
     @pytest.mark.parametrize(
         'inicio, fin, horas',
         [
@@ -446,14 +415,6 @@ class TestEscenario6HorarioFueraDeRango:
 
         assert respuesta.status_code == 201, f'Se rechazo un bloque valido: {caso}'
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-003: RN-012 no implementada. reservas/views.py no valida el '
-            'horario habil 07:00-22:00. La GUI ademas ofrece de 06:00 a 23:30, '
-            'lo que confirma la ausencia de la regla en toda la pila.'
-        ),
-    )
     @pytest.mark.parametrize(
         'inicio, fin, caso',
         [

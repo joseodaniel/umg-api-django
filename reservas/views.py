@@ -260,7 +260,7 @@ def reservas_cancelar(request, pk):
         return Response({'mensaje': 'El usuario solicitante no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
 
     es_creador = (reserva.umg_user_id == solicitante.umg_id)
-    es_admin = (solicitante.umg_rol.umg_nombre == 'Administrador')
+    es_admin = (solicitante.umg_rol.umg_nombre == 'Admin')
 
     if not (es_creador or es_admin):
         return Response({'mensaje': 'No tiene permisos para realizar esta accion.'}, status=status.HTTP_403_FORBIDDEN)
@@ -309,7 +309,7 @@ def reservas_modificar(request, pk):
         return Response({'mensaje': 'El usuario solicitante no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
 
     es_creador = (reserva.umg_user_id == solicitante.umg_id)
-    es_admin = (solicitante.umg_rol.umg_nombre == 'Administrador')
+    es_admin = (solicitante.umg_rol.umg_nombre == 'Admin')
 
     if not (es_creador or es_admin):
         return Response({'mensaje': 'No tiene permisos para realizar esta accion.'}, status=status.HTTP_403_FORBIDDEN)

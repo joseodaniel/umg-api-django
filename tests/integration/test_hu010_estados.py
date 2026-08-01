@@ -10,9 +10,9 @@ umg_estado a lo largo de POST /api/reservas/ y PATCH /api/reservas/{id}/cancelar
 
 Codificacion en base de datos, segun el documento de criterios:
 
-    'R'  Reservada  (la GUI la presenta como "Reservada"/"Activa")
+    'R'  Reservada    (la GUI la presenta como "Reservada"/"Activa")
     'C'  Cancelada
-    ---  Finalizada: NO EXISTE en el modelo (DEF-010)
+    'F'  Finalizada   (asignada por finalizar_vencidas(), reservas/views.py)
 """
 
 import pytest
@@ -137,16 +137,6 @@ class TestEscenario3FinalizacionAutomatica:
 
     Verifica: RF-006
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-010: el estado "Finalizada" no existe. reservas/models.py solo '
-            "documenta 'R' y 'C', y no hay tarea programada, senal ni calculo "
-            'que promueva una reserva vencida. Una reserva del ano pasado sigue '
-            "figurando como 'R' indefinidamente."
-        ),
-    )
 
     def test_una_reserva_vencida_pasa_a_finalizada(
         self, api, docente, lab, fecha_pasada, crear_reserva

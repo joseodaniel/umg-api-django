@@ -114,21 +114,11 @@ class TestEscenario2CancelacionTardia:
     """
     Dado    que la hora de inicio de la actividad ya transcurrio
     Cuando  se solicita la cancelacion de la reserva
-    Entonces el sistema rechaza la operacion con un mensaje de error y el estado
-            permanece sin cambios.
+    Entonces el sistema rechaza la operacion con un mensaje de error y la
+            reserva no queda cancelada.
 
     Verifica: RN-006
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-006: RN-006 no implementada. reservas_cancelar() solo comprueba '
-            'que la reserva no este ya cancelada; no compara la hora de inicio '
-            'contra el momento actual. Coincide con el hallazgo de la GUI '
-            '("se permite cancelar una reserva cuando ya transcurrio").'
-        ),
-    )
 
     def test_rechaza_la_cancelacion_de_una_actividad_pasada(
         self, api, docente, lab, fecha_pasada, crear_reserva
@@ -139,15 +129,22 @@ class TestEscenario2CancelacionTardia:
 
         assert respuesta.status_code in (400, 409)
 
-    def test_el_estado_permanece_sin_cambios(
+    def test_el_estado_no_queda_cancelado(
         self, api, docente, lab, fecha_pasada, crear_reserva
     ):
+        """
+        No se afirma que el estado se quede en 'R': reservas_cancelar()
+        tambien ejecuta finalizar_vencidas() (HU-010), que promueve la
+        reserva vencida a 'F' como efecto colateral independiente del
+        intento de cancelacion. Lo que RN-006 exige es que ese intento no
+        la deje 'C'.
+        """
         reserva = crear_reserva(docente, lab, fecha_pasada, '08:00', '10:00')
 
         api.patch(url_cancelar(reserva.umg_id), format='json')
 
         reserva.refresh_from_db()
-        assert reserva.umg_estado == 'R'
+        assert reserva.umg_estado != 'C'
 
 
 # --------------------------------------------------------------------------- #
