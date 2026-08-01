@@ -152,6 +152,19 @@ class DynamicAutoSchema(AutoSchema):
         if summary:
             operation.setdefault('summary', summary)
 
+        if method == 'GET':
+            params = self._query_parameters(method)
+            existing = {p.get('name') for p in operation.get('parameters', [])}
+            for param in params:
+                if param['name'] not in existing:
+                    operation.setdefault('parameters', []).append(param)
+
+        methods_with_examples = set(DOCS.get('methods_with_examples', ['POST', 'PUT']))
+        if tag:
+            operation.setdefault('tags', [tag])
+        if summary:
+            operation.setdefault('summary', summary)
+
         methods_with_examples = set(DOCS.get('methods_with_examples', ['POST', 'PUT']))
         if method not in methods_with_examples:
             return operation
