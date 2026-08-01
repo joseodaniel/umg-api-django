@@ -171,7 +171,9 @@ def reservas_cancelar(request, pk):
     reserva.umg_estado = 'C'
     reserva.save()
 
+    user_id = request.data.get('UMG_User_ID') or request.query_params.get('UMG_User_ID')
+
     msg_log = "Se cancelo la reserva con ID {0}.".format(pk)
-    registrar_log(None, "CANCELAR_RESERVA", "Reservas", msg_log)
+    registrar_log(user_id, "CANCELAR_RESERVA", "Reservas", msg_log)
 
     return Response({'mensaje': 'Reserva cancelada correctamente.'}, status=status.HTTP_200_OK)

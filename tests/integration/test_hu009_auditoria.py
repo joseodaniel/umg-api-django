@@ -74,24 +74,19 @@ class TestEscenario1RegistroAutomatico:
 
         assert LogEntry.objects.filter(umg_accion='CANCELAR_RESERVA').exists()
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-008: la cancelacion no registra al usuario responsable. '
-            'reservas_cancelar() llama a registrar_log(None, ...) porque, sin '
-            'autenticacion (DEF-007), no tiene a quien atribuir la accion. '
-            'El criterio exige registrar "el usuario responsable".'
-        ),
-    )
     def test_la_cancelacion_registra_al_usuario_responsable(
         self, api, docente, lab, fecha_futura, crear_reserva
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(reverse('reservas-cancelar', args=[reserva.umg_id]), format='json')
+        api.patch(
+            reverse('reservas-cancelar', args=[reserva.umg_id]),
+            {'UMG_User_ID': docente.umg_id},
+            format='json',
+        )
 
         registro = LogEntry.objects.get(umg_accion='CANCELAR_RESERVA')
-        assert registro.umg_user_id is not None
+        assert registro.umg_user_id == docente.umg_id
 
     def test_el_historial_es_consultable_por_la_api(
         self, api, url_reservas, payload_valido
