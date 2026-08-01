@@ -134,14 +134,14 @@ class TestContratoDeLaApi:
         assert campos_esperados.issubset(set(reservas[0].keys()))
 
     def test_los_estados_persistidos_son_validos(self, sesion):
-        """RN-010: en base de datos solo deben existir los estados 'R' y 'C'."""
+        """RN-010: en base de datos solo deben existir 'R', 'C' y 'F'."""
         reservas = _get(sesion, '/api/reservas/').json()
 
         if not reservas:
             pytest.skip('No hay reservas registradas en el ambiente desplegado.')
 
         estados = {r['UMG_Estado'] for r in reservas}
-        assert estados.issubset({'R', 'C'}), f'Estados inesperados: {estados}'
+        assert estados.issubset({'R', 'C', 'F'}), f'Estados inesperados: {estados}'
 
 
 # --------------------------------------------------------------------------- #
