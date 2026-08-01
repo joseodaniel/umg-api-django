@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from .models import Condicion
 
 
@@ -22,8 +23,10 @@ class CondicionListSerializer(serializers.ModelSerializer):
             'UMG_Estado', 'UMG_Fecha_Registro'
         ]
 
+    @extend_schema_field(int)
     def get_UMG_Lab_ID(self, obj):
         return obj.umg_lab.umg_id if obj.umg_lab else None
 
+    @extend_schema_field(str)
     def get_UMG_Lab_Nombre(self, obj):
-        return obj.umg_lab.umg_nombre if obj.umg_lab else "Todos los laboratorios"
+        return obj.umg_lab.umg_nombre if obj.umg_lab else "Todos los laboratorios"
