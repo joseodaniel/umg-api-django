@@ -118,8 +118,8 @@ def reservas_list_create(request):
         user_id = request.data.get('UMG_User_ID')
         lab_id = request.data.get('UMG_Lab_ID')
         fecha = request.data.get('UMG_Fecha_Reserva')
-        hora_inicio = request.data.get('UMG_Hora_Inicio')
-        hora_fin = request.data.get('UMG_Hora_Fin')
+        hora_inicio_str = request.data.get('UMG_Hora_Inicio')
+        hora_fin_str = request.data.get('UMG_Hora_Fin')
         motivo = request.data.get('UMG_Motivo', '').strip()
 
         try:
@@ -129,6 +129,31 @@ def reservas_list_create(request):
 
         if fecha_obj < timezone.localdate():
             return Response({'mensaje': 'No se puede crear una reserva para una fecha pasada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parsear horas a objetos time
+        try:
+            for fmt in ('%H:%M:%S', '%H:%M'):
+                try:
+                    hora_inicio = datetime.strptime(hora_inicio_str, fmt).time()
+                    break
+                except (ValueError, TypeError):
+                    continue
+            else:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'mensaje': 'El formato de hora de inicio no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            for fmt in ('%H:%M:%S', '%H:%M'):
+                try:
+                    hora_fin = datetime.strptime(hora_fin_str, fmt).time()
+                    break
+                except (ValueError, TypeError):
+                    continue
+            else:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'mensaje': 'El formato de hora de fin no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if hora_inicio >= hora_fin:
             return Response({'mensaje': 'La hora de inicio debe ser menor a la hora de fin.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -292,8 +317,8 @@ def reservas_modificar(request, pk):
     user_id = request.data.get('UMG_User_ID')
     lab_id = request.data.get('UMG_Lab_ID')
     fecha = request.data.get('UMG_Fecha_Reserva')
-    hora_inicio = request.data.get('UMG_Hora_Inicio')
-    hora_fin = request.data.get('UMG_Hora_Fin')
+    hora_inicio_str = request.data.get('UMG_Hora_Inicio')
+    hora_fin_str = request.data.get('UMG_Hora_Fin')
     motivo = request.data.get('UMG_Motivo', '').strip()
 
     # Validar fecha
@@ -304,6 +329,31 @@ def reservas_modificar(request, pk):
 
     if fecha_obj < date.today():
         return Response({'mensaje': 'No se puede mover una reserva a una fecha pasada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Parsear horas a objetos time
+    try:
+        for fmt in ('%H:%M:%S', '%H:%M'):
+            try:
+                hora_inicio = datetime.strptime(hora_inicio_str, fmt).time()
+                break
+            except (ValueError, TypeError):
+                continue
+        else:
+            raise ValueError
+    except (ValueError, TypeError):
+        return Response({'mensaje': 'El formato de hora de inicio no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        for fmt in ('%H:%M:%S', '%H:%M'):
+            try:
+                hora_fin = datetime.strptime(hora_fin_str, fmt).time()
+                break
+            except (ValueError, TypeError):
+                continue
+        else:
+            raise ValueError
+    except (ValueError, TypeError):
+        return Response({'mensaje': 'El formato de hora de fin no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Validar horario
     if hora_inicio >= hora_fin:
