@@ -299,7 +299,9 @@ class TestEscenario3LasCanceladasLiberanElEspacio:
 
         # 3. Se cancela la original
         cancelacion = api.patch(
-            reverse('reservas-cancelar', args=[reserva_id]), format='json'
+            reverse('reservas-cancelar', args=[reserva_id]),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
         )
         assert cancelacion.status_code == 200
 

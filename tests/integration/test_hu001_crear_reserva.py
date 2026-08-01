@@ -92,16 +92,6 @@ class TestEscenario1RegistroExitoso:
         assert registro.umg_modulo == 'Reservas'
         assert registro.umg_user_id == docente.umg_id
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-012: el POST devuelve la hora sin normalizar. La vista pasa el '
-            'string crudo a Reserva.objects.create(), y el objeto en memoria lo '
-            'conserva tal cual, asi que el serializer lo repite: "14:00". Releida '
-            'de la base es un objeto time y se serializa "14:00:00". El mismo '
-            'campo viaja en dos formatos segun el endpoint.'
-        ),
-    )
     @pytest.mark.parametrize('campo', ['UMG_Hora_Inicio', 'UMG_Hora_Fin'])
     def test_la_hora_devuelta_al_crear_coincide_con_la_devuelta_al_consultar(
         self, api, url_reservas, payload_valido, campo

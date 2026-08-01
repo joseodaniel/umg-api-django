@@ -96,7 +96,11 @@ class TestEscenario2TransicionPorCancelacion:
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
         assert reserva.umg_estado == 'R'
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         reserva.refresh_from_db()
         assert reserva.umg_estado == 'C'
@@ -106,7 +110,11 @@ class TestEscenario2TransicionPorCancelacion:
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         detalle = api.get(reverse('reservas-detalle', args=[reserva.umg_id]))
         assert detalle.data['UMG_Estado'] == 'C'
@@ -116,9 +124,10 @@ class TestEscenario2TransicionPorCancelacion:
     ):
         """No se puede cancelar dos veces: la segunda vez responde 409."""
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
+        datos = {'UMG_Solicitante_ID': docente.umg_id}
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
-        segunda = api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(url_cancelar(reserva.umg_id), datos, format='json')
+        segunda = api.patch(url_cancelar(reserva.umg_id), datos, format='json')
 
         assert segunda.status_code == 409
         reserva.refresh_from_db()

@@ -39,7 +39,11 @@ class TestEscenario1CancelacionValida:
     def test_responde_http_200(self, api, docente, lab, fecha_futura, crear_reserva):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        respuesta = api.patch(url_cancelar(reserva.umg_id), format='json')
+        respuesta = api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         assert respuesta.status_code == 200
 
@@ -48,7 +52,11 @@ class TestEscenario1CancelacionValida:
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         reserva.refresh_from_db()
         assert reserva.umg_estado == 'C'
@@ -66,7 +74,11 @@ class TestEscenario1CancelacionValida:
 
         assert api.post(url_reservas, payload_valido, format='json').status_code == 409
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         assert api.post(url_reservas, payload_valido, format='json').status_code == 201
 
@@ -76,7 +88,11 @@ class TestEscenario1CancelacionValida:
         """Cancelar no es eliminar: el historial debe preservarse."""
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         assert Reserva.objects.filter(pk=reserva.umg_id).exists()
         assert Reserva.objects.count() == 1
@@ -86,7 +102,11 @@ class TestEscenario1CancelacionValida:
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(url_cancelar(reserva.umg_id), format='json')
+        api.patch(
+            url_cancelar(reserva.umg_id),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         registro = LogEntry.objects.filter(umg_accion='CANCELAR_RESERVA').first()
         assert registro is not None
@@ -101,9 +121,10 @@ class TestEscenario1CancelacionValida:
         self, api, docente, lab, fecha_futura, crear_reserva
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
+        datos = {'UMG_Solicitante_ID': docente.umg_id}
 
-        assert api.patch(url_cancelar(reserva.umg_id), format='json').status_code == 200
-        assert api.patch(url_cancelar(reserva.umg_id), format='json').status_code == 409
+        assert api.patch(url_cancelar(reserva.umg_id), datos, format='json').status_code == 200
+        assert api.patch(url_cancelar(reserva.umg_id), datos, format='json').status_code == 409
 
 
 # --------------------------------------------------------------------------- #
@@ -161,15 +182,6 @@ class TestEscenario3UsuarioNoAutorizado:
     Verifica: RN-013
     """
 
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-007: la API no tiene autenticacion ni control de roles. '
-            'reservas_cancelar() no recibe ni consulta la identidad del '
-            'solicitante, asi que cualquiera puede cancelar cualquier reserva.'
-        ),
-    )
-
     def test_un_docente_ajeno_no_puede_cancelar_la_reserva(
         self, api, docente, otro_docente, lab, fecha_futura, crear_reserva
     ):
@@ -177,7 +189,7 @@ class TestEscenario3UsuarioNoAutorizado:
 
         respuesta = api.patch(
             url_cancelar(reserva.umg_id),
-            {'UMG_User_ID': otro_docente.umg_id},
+            {'UMG_Solicitante_ID': otro_docente.umg_id},
             format='json',
         )
 
@@ -186,50 +198,9 @@ class TestEscenario3UsuarioNoAutorizado:
     def test_una_peticion_anonima_no_puede_cancelar(
         self, api, docente, lab, fecha_futura, crear_reserva
     ):
-        """Sin identificar al solicitante, la operacion deberia rechazarse."""
+        """Sin identificar al solicitante, la operacion se rechaza con 400."""
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
         respuesta = api.patch(url_cancelar(reserva.umg_id), format='json')
 
-        assert respuesta.status_code in (401, 403)
-
-
-# --------------------------------------------------------------------------- #
-# Evidencia del alcance de DEF-007                                             #
-# --------------------------------------------------------------------------- #
-
-class TestAlcanceDeLaFaltaDeAutorizacion:
-    """
-    Pruebas que documentan el estado actual: pasan hoy porque comprueban que la
-    proteccion NO existe. Sirven para dimensionar el riesgo de DEF-007 y
-    fallaran el dia que se implemente la autorizacion.
-    """
-
-    def test_cualquier_peticion_puede_cancelar_una_reserva_ajena(
-        self, api, docente, lab, fecha_futura, crear_reserva
-    ):
-        reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
-
-        respuesta = api.patch(url_cancelar(reserva.umg_id), format='json')
-
-        assert respuesta.status_code == 200, (
-            'La cancelacion ya exige autorizacion: retira esta prueba y quita '
-            'las marcas xfail del escenario 3.'
-        )
-
-    def test_la_bitacora_no_registra_quien_cancelo(
-        self, api, docente, lab, fecha_futura, crear_reserva
-    ):
-        """
-        Consecuencia directa de DEF-007 sobre HU-009: reservas_cancelar() llama
-        a registrar_log(None, ...) porque no tiene a quien atribuir la accion.
-        El historial queda con el que pero sin el quien.
-        """
-        reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
-
-        api.patch(url_cancelar(reserva.umg_id), format='json')
-
-        registro = LogEntry.objects.get(umg_accion='CANCELAR_RESERVA')
-        assert registro.umg_user_id is None, (
-            'La cancelacion ya registra al responsable: actualiza esta prueba.'
-        )
+        assert respuesta.status_code == 400

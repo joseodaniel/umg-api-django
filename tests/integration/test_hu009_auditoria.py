@@ -70,7 +70,11 @@ class TestEscenario1RegistroAutomatico:
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
-        api.patch(reverse('reservas-cancelar', args=[reserva.umg_id]), format='json')
+        api.patch(
+            reverse('reservas-cancelar', args=[reserva.umg_id]),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         assert LogEntry.objects.filter(umg_accion='CANCELAR_RESERVA').exists()
 
@@ -81,7 +85,7 @@ class TestEscenario1RegistroAutomatico:
 
         api.patch(
             reverse('reservas-cancelar', args=[reserva.umg_id]),
-            {'UMG_User_ID': docente.umg_id},
+            {'UMG_Solicitante_ID': docente.umg_id},
             format='json',
         )
 
@@ -111,7 +115,11 @@ class TestEscenario1RegistroAutomatico:
         """
         api.post(url_reservas, payload_valido, format='json')
         reserva = crear_reserva(docente, lab, fecha_futura, '14:00', '16:00')
-        api.patch(reverse('reservas-cancelar', args=[reserva.umg_id]), format='json')
+        api.patch(
+            reverse('reservas-cancelar', args=[reserva.umg_id]),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         respuesta = api.get(URL_LOGS, {'UMG_User_ID': administrador.umg_id})
         marcas = [r['umg_fecha_registro'] for r in respuesta.data]
@@ -210,7 +218,9 @@ class TestEscenario3InmutabilidadDelHistorial:
         creada = api.post(url_reservas, payload_valido, format='json')
 
         api.patch(
-            reverse('reservas-cancelar', args=[creada.data['UMG_ID']]), format='json'
+            reverse('reservas-cancelar', args=[creada.data['UMG_ID']]),
+            {'UMG_Solicitante_ID': payload_valido['UMG_User_ID']},
+            format='json',
         )
 
         assert LogEntry.objects.filter(umg_accion='CREAR_RESERVA').exists()

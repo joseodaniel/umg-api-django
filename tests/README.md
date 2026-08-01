@@ -23,9 +23,9 @@ Para apagar la base de pruebas: `docker compose -f docker-compose.test.yml down 
 ### Ejecutar
 
 ```bash
-pytest                       # toda la suite        -> 201 passed, 37 xfailed
+pytest                       # toda la suite        -> 227 passed,  3 xfailed
 pytest -m unit               # solo unitarias       ->  58 passed,  3 xfailed
-pytest -m integration        # solo integración     -> 143 passed, 34 xfailed
+pytest -m integration        # solo integración     -> 169 passed
 pytest -m smoke              # contra Render        ->   7 passed
 ```
 
@@ -61,13 +61,17 @@ pytest \
 ### Ver los defectos
 
 ```bash
-pytest --runxfail            # los 37 xfail se muestran como fallos reales
+pytest --runxfail            # los 3 xfail se muestran como fallos reales
 pytest -rx                   # lista los xfail con su motivo, sin fallar
 ```
 
 `--runxfail` es la forma de demostrar que los defectos son reales y no pruebas
-desactivadas: desarma las marcas y la suite reporta `37 failed`. Cada fallo trae
-el código `DEF-0XX` correspondiente.
+desactivadas: desarma las marcas y la suite reporta `3 failed`. Los tres son
+`DEF-014` (validación de dominio del correo institucional) — es el único
+defecto que hoy queda respaldado por una prueba marcada `xfail`. El resto de
+los defectos abiertos (ver la sección de más abajo) no tienen marca `xfail`
+porque no rompen ningún criterio de aceptación escrito: son hallazgos de
+cobertura adicional.
 
 ### Inspeccionar
 
@@ -130,11 +134,11 @@ tests/
 ├── integration/
 │   ├── test_hu001_crear_reserva.py            6 escenarios — registrar reserva
 │   ├── test_hu002_disponibilidad.py           3 escenarios — validar disponibilidad
-│   ├── test_hu003_consultar_disponibilidad.py 3 escenarios — sin implementar
+│   ├── test_hu003_consultar_disponibilidad.py 3 escenarios — disponibilidad de labs
 │   ├── test_hu004_listado_global.py           2 escenarios — listado global
 │   ├── test_hu005_consultar_por_id.py         2 escenarios — detalle por ID
 │   ├── test_hu006_filtrar_reservas.py         2 escenarios — filtros
-│   ├── test_hu007_modificar_reserva.py        4 escenarios — sin implementar
+│   ├── test_hu007_modificar_reserva.py        4 escenarios — modificar reserva
 │   ├── test_hu008_cancelar_reserva.py         3 escenarios — cancelación
 │   ├── test_hu009_auditoria.py                3 escenarios — historial
 │   └── test_hu010_estados.py                  4 escenarios — ciclo de vida
@@ -150,9 +154,9 @@ criterio → prueba es directa.
 
 | Suite | Resultado | Duración |
 |---|---|---|
-| Unitarias | `58 passed, 3 xfailed` | 1.7 s |
-| Integración | `143 passed, 34 xfailed` | 3.5 s |
-| Smoke (Render) | `7 passed` | 26 s |
+| Unitarias | `58 passed, 3 xfailed` | ~1.7 s |
+| Integración | `169 passed` | ~2.7 s |
+| Smoke (Render) | `7 passed` | ~26 s |
 
 ### Por qué hay menos unitarias que de integración
 
@@ -173,16 +177,16 @@ defecto contra los criterios de aceptación.
 
 | Historia | Pruebas | Estado |
 |---|---|---|
-| HU-001 — Registrar una nueva reserva | `50 passed, 14 xfailed` | ⚠️ DEF-001, DEF-002, DEF-003, DEF-012, DEF-014 |
+| HU-001 — Registrar una nueva reserva | `61 passed, 3 xfailed` | ⚠️ DEF-014 |
 | HU-002 — Validación automática de disponibilidad | `39 passed` | ✅ Sin defectos |
-| HU-003 — Consultar disponibilidad de laboratorios | `15 passed, 8 xfailed` | ❌ No implementada — DEF-004 |
+| HU-003 — Consultar disponibilidad de laboratorios | `18 passed` | ✅ Sin defectos |
 | HU-004 — Visualizar el listado global de reservas | `9 passed` | ✅ Sin defectos |
 | HU-005 — Consultar una reserva por su identificador | `9 passed` | ✅ Sin defectos |
 | HU-006 — Filtrar reservas por criterios | `11 passed` | ✅ Sin defectos |
-| HU-007 — Modificar una reserva existente | `9 passed, 6 xfailed` | ❌ No implementada — DEF-005, DEF-007 |
-| HU-008 — Cancelar una reserva activa | `17 passed, 4 xfailed` | ⚠️ DEF-006, DEF-007 |
-| HU-009 — Consultar el historial de auditoría | `30 passed, 3 xfailed` | ⚠️ DEF-007, DEF-008, DEF-009, DEF-015 |
-| HU-010 — Gestión automática de estados | `12 passed, 2 xfailed` | ⚠️ DEF-010, DEF-011 |
+| HU-007 — Modificar una reserva existente | `14 passed` | ✅ Sin defectos |
+| HU-008 — Cancelar una reserva activa | `19 passed` | ✅ Sin defectos |
+| HU-009 — Consultar el historial de auditoría | `33 passed` | ⚠️ DEF-009, DEF-013, DEF-015 |
+| HU-010 — Gestión automática de estados | `14 passed` | ⚠️ DEF-011 |
 
 Cada historia tiene su propio archivo de unitarias y de integración, así que
 `pytest -m hu00X` devuelve exactamente lo que respalda a esa historia.
@@ -191,25 +195,34 @@ Cada historia tiene su propio archivo de unitarias y de integración, así que
 
 | Veredicto | Historias |
 |---|---|
-| ✅ Cumplen por completo | HU-002, HU-004, HU-005, HU-006 |
-| ⚠️ Cumplen parcialmente | HU-001, HU-008, HU-009, HU-010 |
-| ❌ Sin implementar | HU-003, HU-007 |
+| ✅ Cumplen por completo | HU-002, HU-003, HU-004, HU-005, HU-006, HU-007, HU-008 |
+| ⚠️ Cumplen parcialmente | HU-001, HU-009, HU-010 |
+| ❌ Sin implementar | — |
 
-**El hallazgo de mayor impacto es DEF-007: la API no tiene autenticación ni
-control de roles.** Afecta a tres escenarios de tres historias distintas
-(HU-007 #4, HU-008 #3, HU-009 #2) y no es corregible sin una decisión de
-arquitectura. Ver el detalle más abajo.
+**Las 10 historias cumplen sus criterios de aceptación.** El hallazgo que más
+afectaba la cobertura era **DEF-007** (la API no tenía autenticación ni
+control de roles), que dejaba inalcanzables tres escenarios de HTTP 403
+(HU-007 #4, HU-008 #3, HU-009 #2). Se mitigó sin resolver la causa raíz: cada
+endpoint que lo necesitaba (`cancelar`, `modificar`, `GET /api/logs/`) ahora
+exige que el cliente declare quién hace la petición (encabezado `X-User-ID`,
+campo `UMG_Solicitante_ID`/`UMG_User_ID` en el cuerpo, o `solicitanteId` en
+la query, según el endpoint) y verifica el rol o la titularidad de la
+reserva antes de autorizar. Es una pseudo-autenticación por convención, no
+una sesión ni un token: cualquiera puede seguir declarando ser cualquier
+usuario, y el resto de los endpoints (`GET`/`POST /api/reservas/`,
+`GET /api/labs/`, `GET /api/usuarios/`, …) sigue sin pedir identidad alguna.
+Ver el detalle en DEF-007 más abajo.
 
 ### HU-001 — detalle por escenario
 
 | # | Escenario | Regla | Resultado |
 |---|---|---|---|
 | 1 | Registro exitoso de una reserva | RF-001, RN-008, RN-010 | ✅ Cumple |
-| 2 | Campos obligatorios incompletos | RF-001, RN-002, RN-005 | ⚠️ Parcial — DEF-001 |
+| 2 | Campos obligatorios incompletos | RF-001, RN-002, RN-005 | ✅ Cumple |
 | 3 | Correo electrónico con formato inválido | RN-009 | ✅ Cumple (adaptado, ver nota) |
 | 4 | Fecha anterior a la fecha actual | RN-003 | ✅ Cumple |
-| 5 | Duración mayor a la permitida | RN-011 | ❌ No implementada — DEF-002 |
-| 6 | Horario fuera del rango de operación | RN-012 | ❌ No implementada — DEF-003 |
+| 5 | Duración mayor a la permitida | RN-011 | ✅ Cumple |
+| 6 | Horario fuera del rango de operación | RN-012 | ✅ Cumple |
 
 **Nota sobre el escenario 3.** El endpoint no recibe el correo del docente:
 recibe `UMG_User_ID` y deriva el correo del usuario ya registrado, tal como
@@ -253,33 +266,50 @@ el documento no contempla pero que afectan el mismo resultado:
 
 | # | Escenario | Regla | Resultado |
 |---|---|---|---|
-| 1 | Consulta con laboratorios disponibles | RF-003, RNF-003 | ❌ No implementada — DEF-004 |
-| 2 | Sin disponibilidad para los criterios | RF-003 | ❌ No implementada — DEF-004 |
-| 3 | Parámetros de consulta inválidos | RNF-004 | ❌ No implementada — DEF-004 |
+| 1 | Consulta con laboratorios disponibles | RF-003, RNF-003 | ✅ Cumple |
+| 2 | Sin disponibilidad para los criterios | RF-003 | ✅ Cumple |
+| 3 | Parámetros de consulta inválidos | RNF-004 | ✅ Cumple |
 
-A diferencia de HU-001 y HU-002, aquí **no hay código que probar**: el endpoint no
-existe. El archivo se organiza en tres bloques con propósitos distintos:
-
-1. **`TestAusenciaDelEndpoint`** — documenta el hueco con pruebas que *pasan* hoy:
-   ninguna de las cuatro rutas plausibles resuelve, y `GET /api/labs/` devuelve el
-   catálogo completo aunque se le pasen `fecha` y `hora_*`. Es el centinela que
-   avisará cuando la situación cambie.
-2. **Escenarios 1 a 3** — los criterios tal como deberían comportarse, marcados
-   `xfail(strict=True)`. Funcionan como **especificación ejecutable** para quien
-   desarrolle el endpoint: al implementarlo, dejan de fallar y `strict` avisa que
-   ya se puede quitar la marca.
-3. **`TestAlternativaComponiendoEndpointsExistentes`** — verifica que la
-   información sí es obtenible hoy combinando `GET /api/labs/` con
-   `GET /api/reservas/?fecha=`. Es lo que la GUI tiene que estar haciendo.
+**DEF-004 está resuelto.** El endpoint existe: `GET /api/labs/disponibles/`
+(`labs/views.py:labs_disponibles`), y reutiliza el mismo criterio de traslape
+que `POST /api/reservas/` además de excluir laboratorios bloqueados por
+`UMG_CONDI`. El archivo conserva `TestAlternativaComponiendoEndpointsExistentes`
+— el rodeo de dos llamadas (`GET /api/labs/` + `GET /api/reservas/?fecha=`)
+sigue funcionando y queda como referencia de rendimiento frente al endpoint
+dedicado, aunque ya no es la única vía.
 
 ## Defectos detectados
 
-Los tres están marcados con `@pytest.mark.xfail(strict=True)`, lo que mantiene la
-suite en verde mientras documenta el defecto. `strict=True` significa que si
+De los quince defectos originales, **diez ya están resueltos**. Solo DEF-014
+sigue respaldado por una prueba `xfail(strict=True)` — el resto de los
+abiertos (DEF-009, DEF-011, DEF-013, DEF-015) son cobertura adicional sin
+marca `xfail`, según se explica en cada uno. `strict=True` significa que si
 alguien corrige el código, la prueba fallará avisando que ya puede quitarse la
-marca.
+marca — así se detectaron los diez resueltos.
+
+| Defecto | Estado |
+|---|---|
+| DEF-001 | ✅ Resuelto |
+| DEF-002 | ✅ Resuelto |
+| DEF-003 | ✅ Resuelto |
+| DEF-004 | ✅ Resuelto |
+| DEF-005 | ✅ Resuelto |
+| DEF-006 | ✅ Resuelto |
+| DEF-007 | 🟡 Mitigado (no resuelto de raíz) |
+| DEF-008 | ✅ Resuelto |
+| DEF-009 | 🔴 Abierto |
+| DEF-010 | ✅ Resuelto |
+| DEF-011 | 🔴 Abierto |
+| DEF-012 | ✅ Resuelto |
+| DEF-013 | 🔴 Abierto |
+| DEF-014 | 🔴 Abierto |
+| DEF-015 | 🔴 Abierto |
 
 ### DEF-001 — Omitir la hora devuelve HTTP 500 en lugar de 400
+
+**Estado: ✅ Resuelto.** `UMG_Hora_Inicio` y `UMG_Hora_Fin` ya forman parte de
+`CAMPOS_REQUERIDOS_RESERVA`; si faltan, `campo_faltante()` devuelve 400 antes
+de llegar a la comparación que antes lanzaba el `TypeError`.
 
 **Severidad:** Alta · **Escenario:** HU-001 #2 · **Ubicación:** `reservas/views.py:73`
 
@@ -302,6 +332,9 @@ incumplir el contrato, un 500 no le dice al cliente qué campo corrigió mal.
 
 ### DEF-002 — RN-011 no implementada (duración máxima de 4 horas)
 
+**Estado: ✅ Resuelto.** `reservas_list_create()` calcula la duración del
+bloque y rechaza con 400 cualquier reserva de más de 240 minutos.
+
 **Severidad:** Media · **Escenario:** HU-001 #5 · **Ubicación:** `reservas/views.py`
 
 No existe validación de duración del bloque. La API acepta con HTTP 201 reservas
@@ -312,6 +345,9 @@ frontend.
 
 ### DEF-003 — RN-012 no implementada (horario hábil 07:00–22:00)
 
+**Estado: ✅ Resuelto.** `reservas_list_create()` rechaza con 400 cualquier
+bloque que empiece antes de las 07:00 o termine después de las 22:00.
+
 **Severidad:** Media · **Escenario:** HU-001 #6 · **Ubicación:** `reservas/views.py`
 
 No existe validación del horario de operación. La API acepta bloques de 05:00 a
@@ -319,6 +355,12 @@ No existe validación del horario de operación. La API acepta bloques de 05:00 
 rango de 06:00 a 23:30 en lugar del 07:00–22:00 especificado.
 
 ### DEF-004 — RF-003 no implementado (consulta de disponibilidad)
+
+**Estado: ✅ Resuelto.** `GET /api/labs/disponibles/` (`labs/views.py:labs_disponibles`)
+implementa exactamente lo sugerido más abajo: recibe `fecha`, `hora_inicio` y
+`hora_fin`, reutiliza la misma condición de traslape que `POST /api/reservas/`
+y además excluye laboratorios bloqueados por `UMG_CONDI` (algo que ni la
+alternativa client-side cubría).
 
 **Severidad:** Alta · **Escenarios:** HU-003 #1, #2 y #3 · **Ubicación:** `labs/urls.py`
 
@@ -347,13 +389,17 @@ cliente:
 - No aplica los bloqueos de `UMG_CONDI`: un laboratorio en mantenimiento aparece
   como libre en la GUI y solo se descubre al recibir el 409 al reservar.
 
-**Corrección sugerida:** un endpoint `GET /api/labs/disponibles/` que reciba
-`fecha`, `hora_inicio` y `hora_fin`, y reutilice `hay_traslape()` y `hay_bloqueo()`
-en lugar de duplicar la regla. Los 8 escenarios marcados `xfail` en
-`test_hu003_consultar_disponibilidad.py` ya especifican el comportamiento
-esperado, incluidos los códigos de estado y el manejo de parámetros inválidos.
+Estos tres párrafos describen el hallazgo original; el endpoint ya se
+implementó siguiendo esa misma recomendación (ver "Estado" arriba).
 
 ### DEF-005 — RF-007 no implementado (modificar una reserva)
+
+**Estado: ✅ Resuelto.** `PUT /api/reservas/{id}/modificar/`
+(`reservas/views.py:reservas_modificar`) reutiliza `hay_traslape(..., excluir_id=pk)`
+tal como sugería la corrección original, revalida RN-006 (actividad no
+iniciada) y RN-013 (solo el creador o un Admin puede modificar). La ruta de
+detalle (`<int:pk>/`) sigue siendo de solo lectura a propósito: modificar vive
+en su propia ruta.
 
 **Severidad:** Alta · **Escenarios:** HU-007 #1 a #4 · **Ubicación:** `reservas/urls.py`
 
@@ -370,14 +416,14 @@ promesa del propio documento:
 - Cada corrección de un dato deja una reserva cancelada que, para HU-004 y
   HU-009, es ruido indistinguible de una cancelación real.
 
-`TestAlternativaCancelarYRecrear` verifica que el rodeo funciona y deja
-documentados ambos costos.
-
-**Corrección sugerida:** `PUT /api/reservas/{id}/` que reutilice `hay_traslape()`
-pasándole `excluir_id=pk` — el parámetro ya existe en la función precisamente
-para este caso.
+`TestAlternativaCancelarYRecrear` se conserva y sigue en verde: el rodeo
+todavía funciona, aunque ya no es necesario.
 
 ### DEF-006 — RN-006 no implementada (cancelar una actividad ya iniciada)
+
+**Estado: ✅ Resuelto.** `reservas_cancelar()` compara la fecha/hora de inicio
+de la reserva contra el momento actual y responde 409 si la actividad ya
+comenzó, antes de tocar el estado.
 
 **Severidad:** Media · **Escenario:** HU-008 #2 · **Ubicación:** `reservas/views.py:126-142`
 
@@ -389,10 +435,22 @@ transcurrió").
 
 ### DEF-007 — La API no tiene autenticación ni control de roles
 
-**Severidad:** Crítica · **Escenarios:** HU-007 #4, HU-008 #3, HU-009 #2 · **Ubicación:** `umg_config/settings.py:141-143`
+**Estado: 🟡 Mitigado, no resuelto de raíz.** Los tres escenarios de HTTP 403
+que este defecto bloqueaba ya pasan (HU-007 #4, HU-008 #3, HU-009 #2), pero no
+porque se haya agregado autenticación real: cada endpoint que necesitaba
+autorizar una acción implementó su propia verificación puntual.
 
-Es el defecto de mayor alcance: **los tres escenarios que exigen HTTP 403 son
-inalcanzables**, no por un error puntual sino porque no existe el mecanismo.
+- `reservas_cancelar()` y `reservas_modificar()` leen la identidad del
+  solicitante de `X-User-ID` (encabezado), `UMG_Solicitante_ID` (cuerpo) o
+  `solicitanteId` (query string) — el primero que venga presente — y exigen
+  que sea el creador de la reserva o tenga rol `Admin`; si no, 403. Si no se
+  envía ninguno, 400.
+- `logs_list()` exige `UMG_User_ID` por query param y el rol `Admin`; si no,
+  403.
+
+Es una **pseudo-autenticación por convención**: el backend confía en el ID que
+el cliente declara, sin verificarlo contra ninguna sesión ni token. Sigue sin
+existir `DEFAULT_AUTHENTICATION_CLASSES` ni `DEFAULT_PERMISSION_CLASSES` en
 
 ```python
 REST_FRAMEWORK = {
@@ -400,27 +458,31 @@ REST_FRAMEWORK = {
 }
 ```
 
-No hay `DEFAULT_AUTHENTICATION_CLASSES` ni `DEFAULT_PERMISSION_CLASSES`, y
-ninguna vista declara `permission_classes`. El endpoint `POST /api/auth/login/`
-valida credenciales y devuelve los datos del usuario, pero **no emite token ni
-sesión**: es una comprobación sin estado que el frontend guarda por su cuenta.
-El backend nunca vuelve a saber quién hace cada petición.
-
-**Consecuencias verificadas por la suite:**
-
-| Efecto | Prueba que lo documenta |
-|---|---|
-| Cualquiera puede cancelar la reserva de cualquiera | `TestAlcanceDeLaFaltaDeAutorizacion` (HU-008) |
-| `GET /api/logs/` es público — el historial de auditoría lo ve cualquiera | `TestEscenario2AccesoExclusivoDelAdministrador` (HU-009) |
-| La bitácora no puede registrar quién canceló | DEF-008 |
+y `POST /api/auth/login/` sigue sin emitir token ni sesión. **El resto de los
+endpoints permanece completamente abierto**: `GET`/`POST /api/reservas/`,
+`GET /api/labs/`, `GET /api/labs/disponibles/` y `GET /api/usuarios/` no piden
+ninguna identidad. Cualquiera que conozca (o adivine) un `UMG_ID` puede
+declarar ser ese usuario ante `cancelar`, `modificar` o `logs`.
 
 **Nota adicional de seguridad, fuera de los criterios de aceptación.** Las
 contraseñas se guardan y comparan en texto plano (`usuarios/views.py:45-51` y
-`74-76`). Combinado con la ausencia de autenticación, cualquiera con acceso a la
-API puede listar usuarios vía `GET /api/usuarios/`. No es parte de ninguna
-historia, pero conviene que quede registrado.
+`74-76`). Combinado con la ausencia de autenticación real, cualquiera con
+acceso a la API puede listar usuarios vía `GET /api/usuarios/` para obtener
+los `UMG_ID` que necesita para suplantar a alguien ante los endpoints ya
+protegidos. No es parte de ninguna historia, pero conviene que quede
+registrado.
+
+**Corrección de fondo pendiente:** sustituir esta convención por sesión o
+token (p. ej. `TokenAuthentication` de DRF) y `permission_classes` reales por
+vista, en vez de que cada vista reimplemente su propia verificación de
+identidad leyendo campos del request.
 
 ### DEF-008 — La cancelación no registra al usuario responsable
+
+**Estado: ✅ Resuelto.** `reservas_cancelar()` ahora calcula `solicitante` (la
+misma verificación de identidad que introdujo la mitigación de DEF-007) y se
+lo pasa a `registrar_log(solicitante.umg_id, ...)`. `reservas_modificar()`
+hace lo mismo para `MODIFICAR_RESERVA`.
 
 **Severidad:** Media · **Escenario:** HU-009 #1 · **Ubicación:** `reservas/views.py:140`
 
@@ -437,6 +499,9 @@ el *quién*, que es justamente lo que una auditoría necesita.
 
 ### DEF-009 — El historial solo expone los últimos 100 registros
 
+**Estado: 🔴 Abierto.** Sigue sin haber paginación ni filtros de rango; el
+`[:100]` fijo continúa igual.
+
 **Severidad:** Media · **Escenario:** HU-009 #1 · **Ubicación:** `logs/views.py:10`
 
 ```python
@@ -450,22 +515,28 @@ historial es consultable solo durante una ventana reciente y arbitraria.
 
 ### DEF-010 — El estado "Finalizada" no existe
 
-**Severidad:** Media · **Escenario:** HU-010 #3 · **Ubicación:** `reservas/models.py:13`
+**Estado: ✅ Resuelto**, aunque no por la vía sugerida originalmente.
+`finalizar_vencidas()` (`reservas/views.py`) persiste el estado `'F'` — en vez
+de calcularlo en el serializer al responder — y se ejecuta "on read/write" al
+inicio de `GET /api/reservas/`, `GET /api/reservas/{id}/` y
+`PATCH /api/reservas/{id}/cancelar/`.
+
+**Severidad:** Media · **Escenario:** HU-010 #3 · **Ubicación:** `reservas/views.py`
 
 ```python
 umg_estado = models.CharField(max_length=1, default='R')  # R = Reservada, C = Cancelada
 ```
 
-El modelo solo contempla `'R'` y `'C'`. No hay tarea programada, señal ni cálculo
-derivado que promueva una reserva vencida a "Finalizada". **Una reserva del año
-pasado sigue figurando como `'R'` (Activa) indefinidamente**, lo que distorsiona
-el listado de HU-004 y cualquier reporte de ocupación.
-
-**Corrección sugerida:** dado que el estado es derivable de la fecha y la hora,
-la vía más simple es calcularlo en el serializer al momento de responder, en vez
-de persistir un tercer valor y necesitar un proceso que lo actualice.
+El modelo solo contemplaba `'R'` y `'C'`. No había tarea programada, señal ni
+cálculo derivado que promoviera una reserva vencida a "Finalizada". Una reserva
+del año pasado seguía figurando como `'R'` (Activa) indefinidamente, lo que
+distorsionaba el listado de HU-004 y cualquier reporte de ocupación.
 
 ### DEF-011 — `umg_estado` no restringe su dominio de valores
+
+**Estado: 🔴 Abierto.** El campo sigue sin `choices` ni constraint, ahora con
+tres valores válidos (`'R'`, `'C'`, `'F'`) que tampoco están reforzados a nivel
+de base de datos o modelo.
 
 **Severidad:** Baja · **Escenario:** cobertura adicional de HU-010 · **Ubicación:** `reservas/models.py:13`
 
@@ -479,7 +550,13 @@ El espacio aparece libre y se puede sobre-reservar.
 
 ### DEF-012 — La hora se devuelve en dos formatos distintos
 
-**Severidad:** Baja · **Escenario:** HU-001 #1 · **Ubicación:** `reservas/views.py:97-104`
+**Estado: ✅ Resuelto.** `reservas_list_create()` y `reservas_modificar()`
+parsean `UMG_Hora_Inicio`/`UMG_Hora_Fin` a `datetime.time` (aceptando tanto
+`HH:MM` como `HH:MM:SS`) antes de crear o guardar la reserva, tal como sugería
+la corrección original. El mismo campo ya viaja consistente entre el `POST`,
+el `PUT` y los `GET`.
+
+**Severidad:** Baja · **Escenario:** HU-001 #1 · **Ubicación:** `reservas/views.py`
 
 El mismo campo viaja con formato distinto según el endpoint:
 
@@ -493,14 +570,13 @@ La vista pasa el string crudo a `Reserva.objects.create()`. El objeto en memoria
 conserva el string tal cual, y el serializer lo repite sin normalizar; releído de
 la base es un objeto `time` y se serializa como `HH:MM:SS`.
 
-**Por qué importa:** un cliente que parsee la respuesta del POST con el mismo
-código que usa para el GET va a fallar. Es el tipo de inconsistencia que no
+**Por qué importaba:** un cliente que parseara la respuesta del POST con el
+mismo código que usa para el GET fallaba. Es el tipo de inconsistencia que no
 molesta hasta que alguien compara ambas respuestas.
 
-**Corrección sugerida:** convertir las horas a `datetime.time` antes de crear el
-registro, igual que ya se hace con la fecha vía `strptime`.
-
 ### DEF-013 — El historial no tiene criterio de desempate en el orden
+
+**Estado: 🔴 Abierto.** Sin cambios.
 
 **Severidad:** Baja · **Escenario:** cobertura adicional de HU-009 · **Ubicación:** `logs/views.py:10`
 
@@ -511,6 +587,9 @@ exacta de los hechos. No se acompaña de una prueba porque el comportamiento es 
 determinista: una prueba que lo afirmara sería intermitente.
 
 ### DEF-014 — La validación de correo no exige el dominio institucional
+
+**Estado: 🔴 Abierto.** Es el único defecto que hoy sigue respaldado por un
+`xfail(strict=True)` en la suite (`pytest -m hu001`).
 
 **Severidad:** Baja · **Escenario:** HU-001 #3 · **Ubicación:** `usuarios/views.py:10`
 
@@ -527,6 +606,9 @@ ocho formatos inválidos sí se rechazan correctamente; el `xfail` cubre solo el
 caso del dominio.
 
 ### DEF-015 — `registrar_log()` no cumple su promesa dentro de una transacción
+
+**Estado: 🔴 Abierto.** `logs/utils.py` no cambió; sigue siendo un `try/except`
+simple alrededor de `LogEntry.objects.create()`.
 
 **Severidad:** Media (latente) · **Escenario:** HU-009 #1 · **Ubicación:** `logs/utils.py:4-17`
 
@@ -566,8 +648,8 @@ arranca si la anterior terminó en verde:
 
 ```
 1 - Unitarias  ──▶  2 - Integración  ──▶  3 - Smoke (manual)
-   19 pruebas          34 + 9 xfail          7 pruebas
-   ~0.9 s              ~3 s                  ~26 s
+  58 + 3 xfail          169 pruebas          7 pruebas
+   ~1.7 s              ~2.7 s                ~26 s
 ```
 
 El orden va de lo más barato y específico a lo más caro y amplio: si una regla de
@@ -611,6 +693,8 @@ la casilla correspondiente. Requieren definir la variable `SMOKE_BASE_URL` en
 5. Reutilizar las fixtures de `conftest.py`; agregar ahí las nuevas que sean
    compartidas por más de un archivo.
 
-Las fixtures `crear_reserva`, `otro_docente`, `otro_lab` y `rol_admin` ya están
-listas y aún no se usan en HU-001: están pensadas para HU-002 (conflictos de
-disponibilidad), HU-007 (modificación) y HU-008 (cancelación).
+Las fixtures `crear_reserva`, `otro_docente`, `otro_lab`, `rol_admin` y
+`administrador` ya se usan en HU-002, HU-007, HU-008, HU-009 y HU-010 — la
+fábrica de reservas por ORM y un segundo docente/laboratorio/administrador
+para armar conflictos, permisos y bloqueos sin depender del endpoint bajo
+prueba.
