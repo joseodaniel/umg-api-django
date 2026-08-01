@@ -18,7 +18,7 @@ def logs_list(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    if solicitante.umg_rol.umg_nombre != 'Administrador':
+    if solicitante.umg_rol.umg_nombre != 'Admin':
         return Response(
             {'mensaje': 'Solo el administrador puede consultar el historial de auditoria.'},
             status=status.HTTP_403_FORBIDDEN,

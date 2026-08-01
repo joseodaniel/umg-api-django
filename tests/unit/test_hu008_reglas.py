@@ -39,7 +39,7 @@ class TestContratoDelUsuarioYSuRol:
         assert UsuarioListSerializer(docente).data['UMG_Rol_Nombre'] == 'Docente'
         assert (
             UsuarioListSerializer(administrador).data['UMG_Rol_Nombre']
-            == 'Administrador'
+            == 'Admin'
         )
 
     def test_distingue_a_un_docente_de_un_administrador(self, docente, administrador):
