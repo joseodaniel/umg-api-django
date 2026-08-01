@@ -160,19 +160,17 @@ def reservas_list_create(request):
         if hora_inicio >= hora_fin:
             return Response({'mensaje': 'La hora de inicio debe ser menor a la hora de fin.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M')
-            hora_fin_obj = datetime.strptime(hora_fin, '%H:%M')
-        except (ValueError, TypeError):
-            return Response({'mensaje': 'El formato de hora debe ser HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
+        dummy_date = date(2000, 1, 1)
+        inicio_dt = datetime.combine(dummy_date, hora_inicio)
+        fin_dt = datetime.combine(dummy_date, hora_fin)
+        duracion_minutos = (fin_dt - inicio_dt).total_seconds() / 60
 
-        duracion_minutos = (hora_fin_obj - hora_inicio_obj).total_seconds() / 60
         if duracion_minutos > 240:
             return Response({'mensaje': 'La duracion maxima permitida por reserva es de 4 horas continuas.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        hora_apertura = datetime.strptime('07:00', '%H:%M')
-        hora_cierre = datetime.strptime('22:00', '%H:%M')
-        if hora_inicio_obj < hora_apertura or hora_fin_obj > hora_cierre:
+        hora_apertura = datetime.strptime('07:00', '%H:%M').time()
+        hora_cierre = datetime.strptime('22:00', '%H:%M').time()
+        if hora_inicio < hora_apertura or hora_fin > hora_cierre:
             return Response({'mensaje': 'El bloque horario debe estar dentro del horario habil de la facultad (07:00 a 22:00).'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -361,6 +359,19 @@ def reservas_modificar(request, pk):
     # Validar horario
     if hora_inicio >= hora_fin:
         return Response({'mensaje': 'La hora de inicio debe ser menor a la hora de fin.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    dummy_date = date(2000, 1, 1)
+    inicio_dt = datetime.combine(dummy_date, hora_inicio)
+    fin_dt = datetime.combine(dummy_date, hora_fin)
+    duracion_minutos = (fin_dt - inicio_dt).total_seconds() / 60
+
+    if duracion_minutos > 240:
+        return Response({'mensaje': 'La duracion maxima permitida por reserva es de 4 horas continuas.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    hora_apertura = datetime.strptime('07:00', '%H:%M').time()
+    hora_cierre = datetime.strptime('22:00', '%H:%M').time()
+    if hora_inicio < hora_apertura or hora_fin > hora_cierre:
+        return Response({'mensaje': 'El bloque horario debe estar dentro del horario habil de la facultad (07:00 a 22:00).'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Validar motivo
     if not motivo:
