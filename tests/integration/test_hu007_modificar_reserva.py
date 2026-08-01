@@ -5,18 +5,14 @@ HU-007 - Modificar una reserva existente | PRUEBAS DE INTEGRACION
      antes del inicio de la actividad, para atender cambios en la planificacion
      academica sin generar conflictos de disponibilidad."
 
-ESTADO: EL ENDPOINT NO EXISTE  (DEF-005)
-----------------------------------------
-reservas/urls.py declara tres rutas y ninguna permite modificar:
+Endpoint bajo prueba: PUT /api/reservas/{id}/modificar/ (reservas/views.py:reservas_modificar)
 
-    ''                  GET, POST     listar y crear
-    '<int:pk>/'         GET           consultar detalle
-    '<int:pk>/cancelar/' PATCH        cancelar
+DEF-005 (RF-007 no implementado) esta resuelto: el endpoint existe, valida
+RN-006 (actividad ya iniciada), RN-013 (solo el creador o un Admin puede
+modificar) y reevalua traslapes/bloqueos excluyendo la propia reserva.
 
-Coincide con el documento de historias, que anota "NO HAY" para HU-007.
-
-Igual que en HU-003, el archivo documenta la ausencia con pruebas que pasan hoy
-y deja los cuatro escenarios como especificacion ejecutable marcada xfail.
+La ruta de detalle ('<int:pk>/') sigue siendo de solo lectura: la
+modificacion vive en una ruta distinta ('<int:pk>/modificar/').
 """
 
 from datetime import timedelta
@@ -33,16 +29,16 @@ def url_detalle(pk):
     return reverse('reservas-detalle', args=[pk])
 
 
+def url_modificar(pk):
+    return reverse('reservas-modificar', args=[pk])
+
+
 # --------------------------------------------------------------------------- #
-# 1. Documentacion del hueco                                                   #
+# Cobertura adicional - La ruta de detalle no modifica                         #
 # --------------------------------------------------------------------------- #
 
-class TestAusenciaDelEndpoint:
-    """
-    DEF-005: RF-007 no esta implementado.
-
-    Centinela: estas pruebas pasan hoy y fallaran cuando el endpoint exista.
-    """
+class TestLaRutaDeDetalleNoModifica:
+    """La modificacion vive en '<int:pk>/modificar/', no en '<int:pk>/'."""
 
     @pytest.mark.parametrize('metodo', ['put', 'patch'])
     def test_la_ruta_de_detalle_no_admite_modificacion(
@@ -55,16 +51,10 @@ class TestAusenciaDelEndpoint:
             url_detalle(reserva.umg_id), {'UMG_Motivo': 'Nuevo motivo'}, format='json'
         )
 
-        assert respuesta.status_code == 405, (
-            f'{metodo.upper()} sobre el detalle respondio {respuesta.status_code}. '
-            f'Si ya se implemento la modificacion, retira TestAusenciaDelEndpoint '
-            f'y quita las marcas xfail de los escenarios 1 a 4.'
-        )
+        assert respuesta.status_code == 405
 
-    @pytest.mark.parametrize(
-        'ruta_sufijo', ['modificar/', 'editar/', 'actualizar/']
-    )
-    def test_ninguna_ruta_plausible_de_modificacion_resuelve(
+    @pytest.mark.parametrize('ruta_sufijo', ['editar/', 'actualizar/'])
+    def test_ninguna_otra_ruta_plausible_de_modificacion_resuelve(
         self, api, docente, lab, fecha_futura, crear_reserva, ruta_sufijo
     ):
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
@@ -77,7 +67,7 @@ class TestAusenciaDelEndpoint:
 
         assert respuesta.status_code == 404
 
-    def test_la_reserva_permanece_intacta_tras_intentar_modificarla(
+    def test_la_reserva_permanece_intacta_tras_intentar_modificarla_por_el_detalle(
         self, api, docente, lab, fecha_futura, crear_reserva
     ):
         reserva = crear_reserva(
@@ -107,11 +97,6 @@ class TestEscenario1ModificacionValida:
     Verifica: RF-007, RN-006, RN-007
     """
 
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-005: RF-007 no implementado, no existe endpoint de modificacion.',
-    )
-
     def test_aplica_los_cambios_y_responde_200(
         self, api, administrador, docente, lab, fecha_futura, crear_reserva
     ):
@@ -120,12 +105,15 @@ class TestEscenario1ModificacionValida:
         )
 
         respuesta = api.put(
-            url_detalle(reserva.umg_id),
+            url_modificar(reserva.umg_id),
             {
-                'UMG_User_ID': administrador.umg_id,
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_futura.isoformat(),
                 'UMG_Hora_Inicio': '14:00',
                 'UMG_Hora_Fin': '16:00',
                 'UMG_Motivo': 'Motivo actualizado',
+                'UMG_Solicitante_ID': administrador.umg_id,
             },
             format='json',
         )
@@ -144,8 +132,16 @@ class TestEscenario1ModificacionValida:
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
         api.put(
-            url_detalle(reserva.umg_id),
-            {'UMG_User_ID': administrador.umg_id, 'UMG_Motivo': 'Actualizado'},
+            url_modificar(reserva.umg_id),
+            {
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_futura.isoformat(),
+                'UMG_Hora_Inicio': '08:00',
+                'UMG_Hora_Fin': '10:00',
+                'UMG_Motivo': 'Actualizado',
+                'UMG_Solicitante_ID': administrador.umg_id,
+            },
             format='json',
         )
 
@@ -167,11 +163,6 @@ class TestEscenario2ConflictoDeDisponibilidad:
     Verifica: RN-004
     """
 
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-005: RF-007 no implementado, no existe endpoint de modificacion.',
-    )
-
     def test_rechaza_con_409_y_no_altera_la_reserva(
         self, api, administrador, docente, otro_docente, lab, fecha_futura,
         crear_reserva
@@ -180,11 +171,15 @@ class TestEscenario2ConflictoDeDisponibilidad:
         crear_reserva(otro_docente, lab, fecha_futura, '14:00', '16:00')
 
         respuesta = api.put(
-            url_detalle(propia.umg_id),
+            url_modificar(propia.umg_id),
             {
-                'UMG_User_ID': administrador.umg_id,
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_futura.isoformat(),
                 'UMG_Hora_Inicio': '14:00',
                 'UMG_Hora_Fin': '16:00',
+                'UMG_Motivo': 'Motivo original',
+                'UMG_Solicitante_ID': administrador.umg_id,
             },
             format='json',
         )
@@ -204,12 +199,15 @@ class TestEscenario2ConflictoDeDisponibilidad:
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
         respuesta = api.put(
-            url_detalle(reserva.umg_id),
+            url_modificar(reserva.umg_id),
             {
-                'UMG_User_ID': administrador.umg_id,
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_futura.isoformat(),
                 'UMG_Hora_Inicio': '08:00',
                 'UMG_Hora_Fin': '10:00',
                 'UMG_Motivo': 'Solo cambia el motivo',
+                'UMG_Solicitante_ID': administrador.umg_id,
             },
             format='json',
         )
@@ -231,11 +229,6 @@ class TestEscenario3ActividadYaIniciada:
     Verifica: RN-006
     """
 
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason='DEF-005: RF-007 no implementado, no existe endpoint de modificacion.',
-    )
-
     def test_rechaza_la_modificacion_de_una_actividad_iniciada(
         self, api, administrador, docente, lab, fecha_pasada, crear_reserva
     ):
@@ -244,8 +237,16 @@ class TestEscenario3ActividadYaIniciada:
         )
 
         respuesta = api.put(
-            url_detalle(reserva.umg_id),
-            {'UMG_User_ID': administrador.umg_id, 'UMG_Motivo': 'Intento tardio'},
+            url_modificar(reserva.umg_id),
+            {
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_pasada.isoformat(),
+                'UMG_Hora_Inicio': '08:00',
+                'UMG_Hora_Fin': '10:00',
+                'UMG_Motivo': 'Intento tardio',
+                'UMG_Solicitante_ID': administrador.umg_id,
+            },
             format='json',
         )
 
@@ -266,19 +267,7 @@ class TestEscenario4UsuarioSinPermisos:
     Entonces el sistema rechaza la operacion con HTTP 403 (Forbidden).
 
     Verifica: RN-013
-
-    NOTA: este escenario depende de DEF-007 ademas de DEF-005. Aunque el
-    endpoint de modificacion existiera, la API no tiene autenticacion ni
-    autorizacion: no hay forma de saber quien envia la peticion.
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-005 (no hay endpoint) y DEF-007 (la API no tiene autenticacion '
-            'ni control de roles).'
-        ),
-    )
 
     def test_un_docente_ajeno_no_puede_modificar_la_reserva(
         self, api, docente, otro_docente, lab, fecha_futura, crear_reserva
@@ -286,8 +275,16 @@ class TestEscenario4UsuarioSinPermisos:
         reserva = crear_reserva(docente, lab, fecha_futura, '08:00', '10:00')
 
         respuesta = api.put(
-            url_detalle(reserva.umg_id),
-            {'UMG_User_ID': otro_docente.umg_id, 'UMG_Motivo': 'Intento ajeno'},
+            url_modificar(reserva.umg_id),
+            {
+                'UMG_User_ID': docente.umg_id,
+                'UMG_Lab_ID': lab.umg_id,
+                'UMG_Fecha_Reserva': fecha_futura.isoformat(),
+                'UMG_Hora_Inicio': '08:00',
+                'UMG_Hora_Fin': '10:00',
+                'UMG_Motivo': 'Intento ajeno',
+                'UMG_Solicitante_ID': otro_docente.umg_id,
+            },
             format='json',
         )
 
@@ -311,7 +308,11 @@ class TestAlternativaCancelarYRecrear:
         original = api.post(url_reservas, payload_valido, format='json')
         reserva_id = original.data['UMG_ID']
 
-        api.patch(reverse('reservas-cancelar', args=[reserva_id]), format='json')
+        api.patch(
+            reverse('reservas-cancelar', args=[reserva_id]),
+            {'UMG_Solicitante_ID': docente.umg_id},
+            format='json',
+        )
 
         payload_valido['UMG_Hora_Inicio'] = '14:00'
         payload_valido['UMG_Hora_Fin'] = '16:00'
@@ -334,7 +335,11 @@ class TestAlternativaCancelarYRecrear:
         original = api.post(url_reservas, payload_valido, format='json')
         id_original = original.data['UMG_ID']
 
-        api.patch(reverse('reservas-cancelar', args=[id_original]), format='json')
+        api.patch(
+            reverse('reservas-cancelar', args=[id_original]),
+            {'UMG_Solicitante_ID': payload_valido['UMG_User_ID']},
+            format='json',
+        )
         payload_valido['UMG_Motivo'] = 'Motivo corregido'
         nueva = api.post(url_reservas, payload_valido, format='json')
 
@@ -350,7 +355,9 @@ class TestAlternativaCancelarYRecrear:
         """
         original = api.post(url_reservas, payload_valido, format='json')
         api.patch(
-            reverse('reservas-cancelar', args=[original.data['UMG_ID']]), format='json'
+            reverse('reservas-cancelar', args=[original.data['UMG_ID']]),
+            {'UMG_Solicitante_ID': payload_valido['UMG_User_ID']},
+            format='json',
         )
         payload_valido['UMG_Motivo'] = 'Motivo corregido'
         api.post(url_reservas, payload_valido, format='json')
