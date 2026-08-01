@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from .models import Reserva
 
 
@@ -24,5 +25,6 @@ class ReservaListSerializer(serializers.ModelSerializer):
             'UMG_Hora_Fin', 'UMG_Motivo', 'UMG_Estado', 'UMG_Fecha_Registro'
         ]
 
+    @extend_schema_field(str)
     def get_UMG_Docente_Nombre(self, obj):
         return "{0} {1}".format(obj.umg_user.umg_nombre, obj.umg_user.umg_apellido)
