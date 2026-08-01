@@ -118,8 +118,8 @@ def reservas_list_create(request):
         user_id = request.data.get('UMG_User_ID')
         lab_id = request.data.get('UMG_Lab_ID')
         fecha = request.data.get('UMG_Fecha_Reserva')
-        hora_inicio = request.data.get('UMG_Hora_Inicio')
-        hora_fin = request.data.get('UMG_Hora_Fin')
+        hora_inicio_str = request.data.get('UMG_Hora_Inicio')
+        hora_fin_str = request.data.get('UMG_Hora_Fin')
         motivo = request.data.get('UMG_Motivo', '').strip()
 
         try:
@@ -129,6 +129,31 @@ def reservas_list_create(request):
 
         if fecha_obj < timezone.localdate():
             return Response({'mensaje': 'No se puede crear una reserva para una fecha pasada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parsear horas a objetos time
+        try:
+            for fmt in ('%H:%M:%S', '%H:%M'):
+                try:
+                    hora_inicio = datetime.strptime(hora_inicio_str, fmt).time()
+                    break
+                except (ValueError, TypeError):
+                    continue
+            else:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'mensaje': 'El formato de hora de inicio no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            for fmt in ('%H:%M:%S', '%H:%M'):
+                try:
+                    hora_fin = datetime.strptime(hora_fin_str, fmt).time()
+                    break
+                except (ValueError, TypeError):
+                    continue
+            else:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'mensaje': 'El formato de hora de fin no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if hora_inicio >= hora_fin:
             return Response({'mensaje': 'La hora de inicio debe ser menor a la hora de fin.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -209,15 +234,170 @@ def reservas_cancelar(request, pk):
     if reserva.umg_estado == 'C':
         return Response({'mensaje': 'Esta reserva ya se encuentra cancelada.'}, status=status.HTTP_409_CONFLICT)
 
-    if reserva.umg_estado == 'F':
-        return Response({'mensaje': 'Esta reserva ya finalizo y no puede cancelarse.'}, status=status.HTTP_409_CONFLICT)
+    # Verificar que la actividad no haya iniciado
+    ahora = datetime.now()
+    inicio_reserva = datetime.combine(reserva.umg_fecha_reserva, reserva.umg_hora_inicio)
+    if ahora >= inicio_reserva:
+        return Response(
+            {'mensaje': 'No se puede cancelar una reserva cuya actividad ya ha iniciado.'},
+            status=status.HTTP_409_CONFLICT
+        )
+
+    # Validar permisos
+    solicitante_id = (
+        request.headers.get('X-User-ID') or
+        request.headers.get('x-user-id') or
+        request.data.get('UMG_Solicitante_ID') or
+        request.query_params.get('solicitanteId')
+    )
+    if not solicitante_id:
+        return Response({'mensaje': 'El ID del solicitante es obligatorio para verificar permisos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        solicitante = Usuario.objects.select_related('umg_rol').get(pk=solicitante_id, umg_estado=1)
+    except Usuario.DoesNotExist:
+        return Response({'mensaje': 'El usuario solicitante no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    es_creador = (reserva.umg_user_id == solicitante.umg_id)
+    es_admin = (solicitante.umg_rol.umg_nombre == 'Admin')
+
+    if not (es_creador or es_admin):
+        return Response({'mensaje': 'No tiene permisos para realizar esta accion.'}, status=status.HTTP_403_FORBIDDEN)
 
     reserva.umg_estado = 'C'
     reserva.save()
 
-    user_id = request.data.get('UMG_User_ID') or request.query_params.get('UMG_User_ID')
-
     msg_log = "Se cancelo la reserva con ID {0}.".format(pk)
-    registrar_log(user_id, "CANCELAR_RESERVA", "Reservas", msg_log)
+    registrar_log(solicitante.umg_id, "CANCELAR_RESERVA", "Reservas", msg_log)
 
     return Response({'mensaje': 'Reserva cancelada correctamente.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT'])
+def reservas_modificar(request, pk):
+    try:
+        reserva = Reserva.objects.get(pk=pk)
+    except Reserva.DoesNotExist:
+        return Response({'mensaje': 'La reserva especificada no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if reserva.umg_estado != 'R':
+        return Response({'mensaje': 'Solo se pueden modificar reservas en estado activo (Reservada).'}, status=status.HTTP_409_CONFLICT)
+
+    # Verificar que la actividad no haya iniciado
+    ahora = datetime.now()
+    inicio_reserva = datetime.combine(reserva.umg_fecha_reserva, reserva.umg_hora_inicio)
+    if ahora >= inicio_reserva:
+        return Response(
+            {'mensaje': 'No se puede modificar una reserva cuya actividad ya ha iniciado.'},
+            status=status.HTTP_409_CONFLICT
+        )
+
+    # Validar permisos
+    solicitante_id = (
+        request.headers.get('X-User-ID') or
+        request.headers.get('x-user-id') or
+        request.data.get('UMG_Solicitante_ID') or
+        request.query_params.get('solicitanteId')
+    )
+    if not solicitante_id:
+        return Response({'mensaje': 'El ID del solicitante es obligatorio para verificar permisos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        solicitante = Usuario.objects.select_related('umg_rol').get(pk=solicitante_id, umg_estado=1)
+    except Usuario.DoesNotExist:
+        return Response({'mensaje': 'El usuario solicitante no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    es_creador = (reserva.umg_user_id == solicitante.umg_id)
+    es_admin = (solicitante.umg_rol.umg_nombre == 'Admin')
+
+    if not (es_creador or es_admin):
+        return Response({'mensaje': 'No tiene permisos para realizar esta accion.'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Leer datos del request
+    user_id = request.data.get('UMG_User_ID')
+    lab_id = request.data.get('UMG_Lab_ID')
+    fecha = request.data.get('UMG_Fecha_Reserva')
+    hora_inicio_str = request.data.get('UMG_Hora_Inicio')
+    hora_fin_str = request.data.get('UMG_Hora_Fin')
+    motivo = request.data.get('UMG_Motivo', '').strip()
+
+    # Validar fecha
+    try:
+        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return Response({'mensaje': 'La fecha proporcionada no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if fecha_obj < date.today():
+        return Response({'mensaje': 'No se puede mover una reserva a una fecha pasada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Parsear horas a objetos time
+    try:
+        for fmt in ('%H:%M:%S', '%H:%M'):
+            try:
+                hora_inicio = datetime.strptime(hora_inicio_str, fmt).time()
+                break
+            except (ValueError, TypeError):
+                continue
+        else:
+            raise ValueError
+    except (ValueError, TypeError):
+        return Response({'mensaje': 'El formato de hora de inicio no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        for fmt in ('%H:%M:%S', '%H:%M'):
+            try:
+                hora_fin = datetime.strptime(hora_fin_str, fmt).time()
+                break
+            except (ValueError, TypeError):
+                continue
+        else:
+            raise ValueError
+    except (ValueError, TypeError):
+        return Response({'mensaje': 'El formato de hora de fin no es valido. Use HH:MM o HH:MM:SS.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validar horario
+    if hora_inicio >= hora_fin:
+        return Response({'mensaje': 'La hora de inicio debe ser menor a la hora de fin.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validar motivo
+    if not motivo:
+        return Response({'mensaje': 'El motivo de la reserva es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validar docente
+    try:
+        usuario = Usuario.objects.get(pk=user_id, umg_estado=1)
+    except Usuario.DoesNotExist:
+        return Response({'mensaje': 'El docente especificado no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validar laboratorio
+    try:
+        lab = Lab.objects.get(pk=lab_id, umg_estado=1)
+    except Lab.DoesNotExist:
+        return Response({'mensaje': 'El laboratorio especificado no existe o esta inactivo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verificar traslape (excluyendo la reserva actual)
+    if hay_traslape(lab_id, fecha_obj, hora_inicio, hora_fin, excluir_id=pk):
+        msg = 'Ya existe una reserva activa para ese laboratorio que se traslapa con el horario solicitado.'
+        return Response({'mensaje': msg}, status=status.HTTP_409_CONFLICT)
+
+    # Verificar bloqueos
+    if hay_bloqueo(lab_id, fecha_obj, hora_inicio, hora_fin):
+        msg = 'El laboratorio no esta disponible en ese horario debido a un bloqueo registrado.'
+        return Response({'mensaje': msg}, status=status.HTTP_409_CONFLICT)
+
+    # Actualizar la reserva
+    reserva.umg_user = usuario
+    reserva.umg_lab = lab
+    reserva.umg_fecha_reserva = fecha_obj
+    reserva.umg_hora_inicio = hora_inicio
+    reserva.umg_hora_fin = hora_fin
+    reserva.umg_motivo = motivo
+    reserva.save()
+
+    msg_log = "Se modifico la reserva con ID {0}. Nuevo laboratorio: {1}, Fecha: {2}, Horario: {3} a {4}. Motivo: {5}.".format(
+        pk, lab_id, fecha_obj, hora_inicio, hora_fin, motivo
+    )
+    registrar_log(solicitante.umg_id, "MODIFICAR_RESERVA", "Reservas", msg_log)
+
+    serializer = ReservaListSerializer(reserva)
+    return Response(serializer.data, status=status.HTTP_200_OK)

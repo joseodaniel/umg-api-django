@@ -1,0 +1,44 @@
+{
+  "actions": [
+    "list", "create", "update", "detalle", "cancelar",
+    "inactivar", "resetear", "login", "cambiar", "contrasena",
+    "modificar"
+  ],
+  "methods": {
+    "GET": {
+      "list": "Obtener lista de",
+      "detail": "Obtener detalle de",
+      "default": "Obtener"
+    },
+    "POST": {
+      "create": "Crear",
+      "default": "Ejecutar"
+    },
+    "PUT": {
+      "update": "Actualizar",
+      "modify": "Modificar",
+      "default": "Actualizar"
+    },
+    "PATCH": {
+      "cancel": "Cancelar",
+      "deactivate": "Inactivar",
+      "reset": "Restablecer contrasena de",
+      "default": "Actualizar"
+    }
+  },
+  "rules": [
+    { "method": "GET",   "keyword": "list",       "key": "list" },
+    { "method": "GET",   "keyword": "detalle",    "key": "detail" },
+    { "method": "POST",  "keyword": "create",     "key": "create" },
+    { "method": "PUT",   "keyword": "update",     "key": "update" },
+    { "method": "PUT",   "keyword": "modificar",  "key": "modify" },
+    { "method": "PATCH", "keyword": "cancelar",   "key": "cancel" },
+    { "method": "PATCH", "keyword": "inactivar",  "key": "deactivate" },
+    { "method": "PATCH", "keyword": "resetear",   "key": "reset" }
+  ],
+  "methods_with_examples": ["POST", "PUT", "PATCH"],
+  "views": {
+    "login": "Iniciar sesion de",
+    "cambiar_contrasena": "Cambiar contrasena de"
+  }
+}
