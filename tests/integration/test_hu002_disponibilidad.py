@@ -189,7 +189,7 @@ class TestEscenario2DisponibilidadConfirmada:
         'inicio, fin, caso',
         [
             ('10:00', '12:00', 'arranca justo cuando termina el bloque ocupado'),
-            ('06:00', '08:00', 'termina justo cuando arranca el bloque ocupado'),
+            ('07:00', '08:00', 'termina justo cuando arranca el bloque ocupado'),
             ('14:00', '16:00', 'completamente separado'),
         ],
     )
