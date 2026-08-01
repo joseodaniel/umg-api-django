@@ -89,18 +89,18 @@ class TestEscenario1RegistroAutomatico:
         assert registro.umg_user_id == docente.umg_id
 
     def test_el_historial_es_consultable_por_la_api(
-        self, api, url_reservas, payload_valido
+        self, api, url_reservas, payload_valido, administrador
     ):
         api.post(url_reservas, payload_valido, format='json')
 
-        respuesta = api.get(URL_LOGS)
+        respuesta = api.get(URL_LOGS, {'UMG_User_ID': administrador.umg_id})
 
         assert respuesta.status_code == 200
         assert any(r['umg_accion'] == 'CREAR_RESERVA' for r in respuesta.data)
 
     def test_el_historial_se_ordena_de_lo_mas_reciente_a_lo_mas_antiguo(
         self, api, url_reservas, payload_valido, docente, lab, fecha_futura,
-        crear_reserva
+        crear_reserva, administrador
     ):
         """
         Se verifica el invariante real -las marcas de tiempo van en orden
@@ -113,7 +113,8 @@ class TestEscenario1RegistroAutomatico:
         reserva = crear_reserva(docente, lab, fecha_futura, '14:00', '16:00')
         api.patch(reverse('reservas-cancelar', args=[reserva.umg_id]), format='json')
 
-        marcas = [r['umg_fecha_registro'] for r in api.get(URL_LOGS).data]
+        respuesta = api.get(URL_LOGS, {'UMG_User_ID': administrador.umg_id})
+        marcas = [r['umg_fecha_registro'] for r in respuesta.data]
 
         assert marcas == sorted(marcas, reverse=True)
         assert len(marcas) == 2
@@ -151,15 +152,6 @@ class TestEscenario2AccesoExclusivoDelAdministrador:
 
     Verifica: RF-013
     """
-
-    pytestmark = pytest.mark.xfail(
-        strict=True,
-        reason=(
-            'DEF-007: la API no tiene autenticacion ni control de roles. '
-            'logs_list() no consulta la identidad del solicitante, por lo que '
-            'GET /api/logs/ es publico.'
-        ),
-    )
 
     def test_un_docente_no_puede_consultar_el_historial(self, api, docente):
         respuesta = api.get(URL_LOGS, {'UMG_User_ID': docente.umg_id})
@@ -233,7 +225,7 @@ class TestVentanaDelHistorial:
     """Cobertura mas alla de los criterios escritos."""
 
     def test_el_endpoint_devuelve_como_maximo_100_registros(
-        self, api, docente, db
+        self, api, docente, administrador, db
     ):
         """
         DEF-009: logs_list() aplica un [:100] fijo, sin paginacion ni filtros.
@@ -250,13 +242,13 @@ class TestVentanaDelHistorial:
             for i in range(150)
         ])
 
-        respuesta = api.get(URL_LOGS)
+        respuesta = api.get(URL_LOGS, {'UMG_User_ID': administrador.umg_id})
 
         assert len(respuesta.data) == 100
         assert LogEntry.objects.count() == 150
 
     def test_no_admite_filtros_para_alcanzar_los_registros_antiguos(
-        self, api, docente, db
+        self, api, docente, administrador, db
     ):
         """
         Consecuencia de DEF-009: no hay parametros de paginacion ni de rango de
@@ -273,7 +265,12 @@ class TestVentanaDelHistorial:
             for i in range(150)
         ])
 
-        respuesta = api.get(URL_LOGS, {'page': 2, 'offset': 100, 'limit': 200})
+        respuesta = api.get(URL_LOGS, {
+            'UMG_User_ID': administrador.umg_id,
+            'page': 2,
+            'offset': 100,
+            'limit': 200,
+        })
 
         assert len(respuesta.data) == 100, (
             'El endpoint ya admite paginacion: actualiza esta prueba y DEF-009.'
